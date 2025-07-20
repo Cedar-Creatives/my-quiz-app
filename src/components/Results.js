@@ -25,7 +25,7 @@ function Results({ userAnswers, onRetake }) {
                   <ListItem key={idx}>
                     <ListItemText
                       primary={ans.question}
-                      secondary={`Your answer: ${ans.selected} | Correct: ${ans.correct}`}
+                      secondary={`Your answer: ${ans.selected === 'No Answer' ? 'No Answer (Time Expired)' : ans.selected} | Correct: ${ans.correct}`}
                     />
                   </ListItem>
                 ))}

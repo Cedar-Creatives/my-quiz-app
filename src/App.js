@@ -12,14 +12,14 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleStartQuiz = async (topic, complexity) => {
+  const handleStartQuiz = async (topic, complexity, numQuestions) => {
     setIsLoading(true);
     setError('');
     try {
       const response = await fetch('http://localhost:5000/api/generate-quiz', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, complexity }),
+        body: JSON.stringify({ topic, complexity, numQuestions }),
       });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);

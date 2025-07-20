@@ -4,9 +4,10 @@ import { TextField, Button, Typography, Container, Select, MenuItem, FormControl
 function Home({ onStartQuiz }) {
   const [topic, setTopic] = useState('');
   const [complexity, setComplexity] = useState('beginner');
+  const [numQuestions, setNumQuestions] = useState(10); // Default to 10 questions
 
   const handleStart = () => {
-    if (topic) onStartQuiz(topic, complexity);
+    if (topic) onStartQuiz(topic, complexity, numQuestions);
   };
 
   return (
@@ -30,6 +31,22 @@ function Home({ onStartQuiz }) {
         label="Enter Quiz Topic"
         value={topic}
         onChange={(e) => setTopic(e.target.value)}
+        margin="normal"
+      />
+      <TextField
+        fullWidth
+        label="Number of Questions (1-100)"
+        type="number"
+        value={numQuestions}
+        onChange={(e) => {
+          const value = parseInt(e.target.value, 10);
+          if (!isNaN(value) && value >= 1 && value <= 100) {
+            setNumQuestions(value);
+          } else if (e.target.value === '') {
+            setNumQuestions(''); // Allow clearing the input
+          }
+        }}
+        inputProps={{ min: 1, max: 100 }}
         margin="normal"
       />
       <Button variant="contained" color="primary" onClick={handleStart} disabled={!topic}>

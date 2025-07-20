@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Card, CardContent, Typography, Button, Radio, RadioGroup, FormControlLabel, FormControl, Box } from '@mui/material';
+import { useState, useEffect } from 'react';
+import { Card, CardContent, Typography, Button, Radio, RadioGroup, FormControlLabel, FormControl, Box, Alert, CircularProgress } from '@mui/material';
+import { useRef } from 'react';
 
 function Quiz({ questions, onQuizComplete }) {
   if (!questions || questions.length === 0) {
@@ -9,23 +10,82 @@ function Quiz({ questions, onQuizComplete }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState('');
   const [isAnswered, setIsAnswered] = useState(false);
+  const isAnsweredRef = useRef(isAnswered);
   const [userAnswers, setUserAnswers] = useState([]);
+  const [explanation, setExplanation] = useState('');
+  const [isExplaining, setIsExplaining] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(30); // 30 seconds per question
 
   const currentQuestion = questions[currentIndex];
 
-  const handleSelect = (option) => {
+  useEffect(() => {
+    setExplanation('');
+    setSelectedOption('');
+    setIsAnswered(false); // Reset isAnswered for new question
+    setTimeLeft(30); // Reset timer for new question
+
+    const timer = setInterval(() => {
+      setTimeLeft((prevTime) => {
+        if (prevTime <= 1) {
+          clearInterval(timer);
+          // Automatically move to next question if time runs out and not answered
+          if (!isAnsweredRef.current) {
+            handleNext(true); // Pass true to indicate time ran out
+          }
+          return 0;
+        }
+        return prevTime - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [currentIndex]);
+
+  useEffect(() => {
+    isAnsweredRef.current = isAnswered;
+  }, [isAnswered]);
+
+  const handleSelect = async (option) => {
     if (!isAnswered) {
       setSelectedOption(option);
-      setIsAnswered(true);
       setUserAnswers([...userAnswers, { question: currentQuestion.question, selected: option, correct: currentQuestion.correctAnswer }]);
+
+      setIsExplaining(true);
+      try {
+        const response = await fetch('http://localhost:5000/api/explain-answer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            question: currentQuestion.question,
+            selectedOption: option,
+            correctOption: currentQuestion.correctAnswer,
+          }),
+        });
+        const data = await response.json();
+        setExplanation(data.explanation);
+      } catch (error) {
+        console.error('Error fetching explanation:', error);
+        setExplanation('Failed to load explanation.');
+      } finally {
+        setIsExplaining(false);
+        setIsAnswered(true); // Set isAnswered to true after explanation is fetched
+      }
     }
   };
 
-  const handleNext = () => {
+  const handleNext = (timeRanOut = false) => {
+    // If time ran out and user didn't answer, record it as unanswered
+    if (timeRanOut && !isAnswered) {
+      setUserAnswers((prevAnswers) => [
+        ...prevAnswers,
+        { question: currentQuestion.question, selected: 'No Answer', correct: currentQuestion.correctAnswer },
+      ]);
+    }
+
+    // Always advance to the next question
     if (currentIndex < questions.length - 1) {
       setCurrentIndex(currentIndex + 1);
-      setSelectedOption('');
-      setIsAnswered(false);
+      setIsAnswered(false); // Reset isAnswered for the next question
     } else {
       onQuizComplete(userAnswers);
     }
@@ -44,6 +104,9 @@ function Quiz({ questions, onQuizComplete }) {
         <Typography variant="h5" gutterBottom>
           Question {currentIndex + 1} of {questions.length}
         </Typography>
+        <Typography variant="h6" color="textSecondary" sx={{ mb: 2 }}>
+          Time Left: {timeLeft}s
+        </Typography>
         <Typography variant="body1" gutterBottom>
           {currentQuestion.question}
         </Typography>
@@ -55,14 +118,24 @@ function Quiz({ questions, onQuizComplete }) {
                 value={option}
                 control={<Radio color={getOptionColor(option)} />}
                 label={option}
-                disabled={isAnswered && option !== selectedOption}
+                disabled={isAnswered || timeLeft === 0}
               />
             ))}
           </RadioGroup>
         </FormControl>
         {isAnswered && (
           <Box mt={2}>
-            <Button variant="contained" color="primary" onClick={handleNext}>
+            {selectedOption === currentQuestion.correctAnswer ? (
+              <Alert severity="success">Correct!</Alert>
+            ) : (
+              <Alert severity="error">Incorrect. The correct answer was: {currentQuestion.correctAnswer}</Alert>
+            )}
+            {isExplaining ? (
+              <CircularProgress size={24} sx={{ mt: 2 }} />
+            ) : (
+              explanation && <Typography variant="body2" sx={{ mt: 2 }}>{explanation}</Typography>
+            )}
+            <Button variant="contained" color="primary" onClick={handleNext} sx={{ mt: 2 }}>
               {currentIndex < questions.length - 1 ? 'Next' : 'Finish'}
             </Button>
           </Box>
