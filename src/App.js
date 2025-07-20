@@ -9,10 +9,16 @@ function App() {
   const [screen, setScreen] = useState('home');
   const [questions, setQuestions] = useState([]);
   const [userAnswers, setUserAnswers] = useState([]);
+  const [quizTopic, setQuizTopic] = useState('');
+  const [quizComplexity, setQuizComplexity] = useState('');
+  const [quizNumQuestions, setQuizNumQuestions] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleStartQuiz = async (topic, complexity, numQuestions) => {
+    setQuizTopic(topic);
+    setQuizComplexity(complexity);
+    setQuizNumQuestions(numQuestions);
     setIsLoading(true);
     setError('');
     try {
@@ -49,6 +55,12 @@ function App() {
     setUserAnswers([]);
   };
 
+  const handleCancelQuiz = () => {
+    setScreen('home');
+    setQuestions([]);
+    setUserAnswers([]);
+  };
+
   return (
     <>
       <CssBaseline />
@@ -60,8 +72,8 @@ function App() {
         ) : (
           <>
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-            {screen === 'home' && <Home onStartQuiz={handleStartQuiz} />}
-            {screen === 'quiz' && <Quiz questions={questions} onQuizComplete={handleQuizComplete} />}
+            {screen === 'home' && <Home onStartQuiz={handleStartQuiz} initialTopic={quizTopic} initialComplexity={quizComplexity} initialNumQuestions={quizNumQuestions} />}            
+            {screen === 'quiz' && <Quiz questions={questions} onQuizComplete={handleQuizComplete} onCancel={handleCancelQuiz} />}            
             {screen === 'results' && <Results userAnswers={userAnswers} onRetake={handleRetake} />}
           </>
         )}

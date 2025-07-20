@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { TextField, Button, Typography, Container, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 
-function Home({ onStartQuiz }) {
-  const [topic, setTopic] = useState('');
-  const [complexity, setComplexity] = useState('beginner');
-  const [numQuestions, setNumQuestions] = useState(10); // Default to 10 questions
+function Home({ onStartQuiz, initialTopic, initialComplexity, initialNumQuestions }) {
+  const [topic, setTopic] = useState(initialTopic || '');
+  const [complexity, setComplexity] = useState(initialComplexity || 'beginner');
+  const [numQuestions, setNumQuestions] = useState(initialNumQuestions || 10); // Default to 10 questions
 
   const handleStart = () => {
     if (topic) onStartQuiz(topic, complexity, numQuestions);

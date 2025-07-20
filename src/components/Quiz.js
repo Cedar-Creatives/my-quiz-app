@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, Typography, Button, Radio, RadioGroup, FormControlLabel, FormControl, Box, Alert, CircularProgress } from '@mui/material';
 import { useRef } from 'react';
 
-function Quiz({ questions, onQuizComplete }) {
+function Quiz({ questions, onQuizComplete, onCancel }) {
   if (!questions || questions.length === 0) {
     return <Typography variant="h6" color="error">No questions available. Please try again.</Typography>;
   }
@@ -137,6 +137,9 @@ function Quiz({ questions, onQuizComplete }) {
             )}
             <Button variant="contained" color="primary" onClick={handleNext} sx={{ mt: 2 }}>
               {currentIndex < questions.length - 1 ? 'Next' : 'Finish'}
+            </Button>
+            <Button variant="outlined" color="secondary" onClick={onCancel} sx={{ mt: 2, ml: 2 }}>
+              Cancel
             </Button>
           </Box>
         )}
