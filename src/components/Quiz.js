@@ -33,7 +33,7 @@ function Quiz({ questions, onQuizComplete, onCancel }) {
     } else {
       onQuizComplete(userAnswers);
     }
-  }, [currentIndex, isAnswered, onQuizComplete, userAnswers]);
+  }, [currentIndex, isAnswered, onQuizComplete, userAnswers, currentQuestion, questions.length]);
 
   useEffect(() => {
     setExplanation('');
