@@ -22,7 +22,7 @@ function Quiz({ questions, onQuizComplete, onCancel }) {
   }, [userAnswers]);
 
   const handleNext = useCallback((timeRanOut = false) => {
-    console.log('handleNext called. timeRanOut:', timeRanOut, 'currentIndex:', currentIndex, 'isAnswered:', isAnswered, 'userAnswers length:', userAnswersRef.current.length);
+    console.log('handleNext called. timeRanOut:', timeRanOut, 'currentIndex:', currentIndex, 'isAnswered:', isAnsweredRef.current, 'userAnswers length:', userAnswersRef.current.length);
     let finalAnswers = userAnswersRef.current;
     if (timeRanOut && !isAnsweredRef.current) {
       const unanswered = { question: questions[currentIndex].question, selected: 'No Answer', correct: questions[currentIndex].correctAnswer };
