@@ -3,7 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 
-const { repairJson } = require('jsonrepair');
+const { jsonrepair } = require('jsonrepair');
 const OpenAI = require('openai');
 
 const openai = new OpenAI({
@@ -109,7 +109,7 @@ app.post("/api/generate-quiz", async (req, res) => {
       console.log(`Attempt ${attempts} - JSON String before repair:`, jsonString);
 
       // Repair any remaining issues
-      jsonString = repairJson(jsonString);
+      jsonString = jsonrepair(jsonString);
       console.log(`Attempt ${attempts} - Repaired JSON:`, jsonString);
 
       let questions;
@@ -123,7 +123,7 @@ app.post("/api/generate-quiz", async (req, res) => {
           messages: [{ role: "user", content: repairPrompt }],
         });
         const repairedContent = repairResult.choices[0].message.content.trim().replace(/```json|[`]{3}/g, '').trim();
-        jsonString = repairJson(repairedContent); // Repair again if needed
+        jsonString = jsonrepair(repairedContent); // Repair again if needed
         questions = JSON.parse(jsonString);
       }
       if (!Array.isArray(questions) || questions.length !== questionCount || !questions.every(q => q.question && Array.isArray(q.options) && q.options.length === 4 && q.correctAnswer)) {
@@ -204,7 +204,7 @@ app.post('/api/explain-answer', async (req, res) => {
     if (selectedOption === correctOption) {
       prompt = `For the question: "${question}", explain concisely why option "${correctOption}" is the correct answer. Focus only on the explanation of correctness.`;
     } else {
-      prompt = `For the question: "${correctOption}", explain concisely why option "${correctOption}" is the correct answer and why option "${selectedOption}" is incorrect. Focus only on the explanation of correctness and incorrectness.`;
+      prompt = `For the question: "${question}", explain concisely why option "${correctOption}" is the correct answer and why option "${selectedOption}" is incorrect. Focus only on the explanation of correctness and incorrectness.`;
     }
     const result = await openai.chat.completions.create({
       model: model,

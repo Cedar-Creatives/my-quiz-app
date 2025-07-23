@@ -7,47 +7,58 @@ function Quiz({ questions, onQuizComplete, onCancel }) {
   const [isAnswered, setIsAnswered] = useState(false);
   const isAnsweredRef = useRef(isAnswered);
   const [userAnswers, setUserAnswers] = useState([]);
+  const userAnswersRef = useRef(userAnswers);
   const [explanation, setExplanation] = useState('');
   const [isExplaining, setIsExplaining] = useState(false);
   const [timeLeft, setTimeLeft] = useState(30); // 30 seconds per question
+  const timerRef = useRef(null); // Ref to hold the timer interval
 
   const currentQuestion = questions[currentIndex];
 
-
-
-
-
-  const handleNext = useCallback((timeRanOut = false) => {
-    // If time ran out and user didn't answer, record it as unanswered
-    if (timeRanOut && !isAnswered) {
-      setUserAnswers((prevAnswers) => [
-        ...prevAnswers,
-        { question: currentQuestion.question, selected: 'No Answer', correct: currentQuestion.correctAnswer },
-      ]);
-    }
-
-    // Always advance to the next question
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-      setIsAnswered(false); // Reset isAnswered for the next question
-    } else {
-      onQuizComplete(userAnswers);
-    }
-  }, [currentIndex, isAnswered, onQuizComplete, userAnswers, currentQuestion, questions.length]);
+  console.log('Quiz component rendered. currentIndex:', currentIndex, 'isAnswered:', isAnswered);
 
   useEffect(() => {
+    userAnswersRef.current = userAnswers;
+  }, [userAnswers]);
+
+  const handleNext = useCallback((timeRanOut = false) => {
+    console.log('handleNext called. timeRanOut:', timeRanOut, 'currentIndex:', currentIndex, 'isAnswered:', isAnswered, 'userAnswers length:', userAnswersRef.current.length);
+    let finalAnswers = userAnswersRef.current;
+    if (timeRanOut && !isAnsweredRef.current) {
+      const unanswered = { question: questions[currentIndex].question, selected: 'No Answer', correct: questions[currentIndex].correctAnswer };
+      setUserAnswers((prev) => [...prev, unanswered]);
+      finalAnswers = [...finalAnswers, unanswered];
+    }
+
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    } else {
+      onQuizComplete(finalAnswers);
+    }
+  }, [currentIndex, onQuizComplete, questions, setCurrentIndex, setUserAnswers]);
+
+  useEffect(() => {
+    console.log('useEffect for question setup triggered. currentIndex:', currentIndex);
     setExplanation('');
     setSelectedOption('');
     setIsAnswered(false); // Reset isAnswered for new question
+    isAnsweredRef.current = false;
     setTimeLeft(30); // Reset timer for new question
 
-    const timer = setInterval(() => {
+    // Clear any existing timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+
+    timerRef.current = setInterval(() => {
       setTimeLeft((prevTime) => {
+        console.log('Timer tick. timeLeft:', prevTime - 1, 'isAnswered:', isAnsweredRef.current);
         if (prevTime <= 1) {
-          clearInterval(timer);
+          clearInterval(timerRef.current);
+          timerRef.current = null;
           // Automatically move to next question if time runs out and not answered
           if (!isAnsweredRef.current) {
-            handleNext(true); // Pass true to indicate time ran out
+            handleNext(true);
           }
           return 0;
         }
@@ -55,22 +66,32 @@ function Quiz({ questions, onQuizComplete, onCancel }) {
       });
     }, 1000);
 
-    return () => clearInterval(timer);
+    return () => {
+      console.log('Cleanup: Clearing timer for currentIndex:', currentIndex);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
   }, [currentIndex, handleNext]);
-
-  useEffect(() => {
-    isAnsweredRef.current = isAnswered;
-  }, [isAnswered]);
 
   if (!questions || questions.length === 0) {
     return <Typography variant="h6" color="error">No questions available. Please try again.</Typography>;
   }
 
   const handleSelect = async (option) => {
+    console.log('handleSelect called. option:', option, 'currentIndex:', currentIndex, 'isAnswered before:', isAnswered);
     if (!isAnswered) {
       setSelectedOption(option);
       setUserAnswers([...userAnswers, { question: currentQuestion.question, selected: option, correct: currentQuestion.correctAnswer }]);
-
+      isAnsweredRef.current = true; // Update ref immediately
+      setIsAnswered(true); // Set isAnswered to true immediately
+      console.log('isAnswered set to true. currentIndex:', currentIndex);
+      if (timerRef.current) {
+        console.log('Clearing timer in handleSelect. currentIndex:', currentIndex);
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
       setIsExplaining(true);
       try {
         const response = await fetch('http://localhost:5000/api/explain-answer', {
@@ -84,12 +105,12 @@ function Quiz({ questions, onQuizComplete, onCancel }) {
         });
         const data = await response.json();
         setExplanation(data.explanation);
+        console.log('Explanation fetched. currentIndex:', currentIndex, 'isAnswered:', isAnswered);
       } catch (error) {
         console.error('Error fetching explanation:', error);
         setExplanation('Failed to load explanation.');
       } finally {
         setIsExplaining(false);
-        setIsAnswered(true); // Set isAnswered to true after explanation is fetched
       }
     }
   };
