@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CssBaseline, CircularProgress, Container, Typography, Alert } from '@mui/material';
+import { CssBaseline, CircularProgress, Container, Alert } from '@mui/material';
 import Home from './components/Home';
 import Quiz from './components/Quiz';
 import Results from './components/Results';

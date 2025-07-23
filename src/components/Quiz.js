@@ -36,7 +36,7 @@ function Quiz({ questions, onQuizComplete, onCancel }) {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [currentIndex]);
+  }, [currentIndex, handleNext]);
 
   useEffect(() => {
     isAnsweredRef.current = isAnswered;
