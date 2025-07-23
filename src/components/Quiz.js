@@ -1,5 +1,5 @@
 import { Card, CardContent, Typography, Button, Radio, RadioGroup, FormControlLabel, FormControl, Box, Alert, CircularProgress } from '@mui/material';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 function Quiz({ questions, onQuizComplete, onCancel }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -46,6 +46,24 @@ function Quiz({ questions, onQuizComplete, onCancel }) {
     return <Typography variant="h6" color="error">No questions available. Please try again.</Typography>;
   }
 
+  const handleNext = useCallback((timeRanOut = false) => {
+    // If time ran out and user didn't answer, record it as unanswered
+    if (timeRanOut && !isAnswered) {
+      setUserAnswers((prevAnswers) => [
+        ...prevAnswers,
+        { question: currentQuestion.question, selected: 'No Answer', correct: currentQuestion.correctAnswer },
+      ]);
+    }
+
+    // Always advance to the next question
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+      setIsAnswered(false); // Reset isAnswered for the next question
+    } else {
+      onQuizComplete(userAnswers);
+    }
+  }, [currentIndex, isAnswered, onQuizComplete, userAnswers]);
+
   const handleSelect = async (option) => {
     if (!isAnswered) {
       setSelectedOption(option);
@@ -71,24 +89,6 @@ function Quiz({ questions, onQuizComplete, onCancel }) {
         setIsExplaining(false);
         setIsAnswered(true); // Set isAnswered to true after explanation is fetched
       }
-    }
-  };
-
-  const handleNext = (timeRanOut = false) => {
-    // If time ran out and user didn't answer, record it as unanswered
-    if (timeRanOut && !isAnswered) {
-      setUserAnswers((prevAnswers) => [
-        ...prevAnswers,
-        { question: currentQuestion.question, selected: 'No Answer', correct: currentQuestion.correctAnswer },
-      ]);
-    }
-
-    // Always advance to the next question
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-      setIsAnswered(false); // Reset isAnswered for the next question
-    } else {
-      onQuizComplete(userAnswers);
     }
   };
 
