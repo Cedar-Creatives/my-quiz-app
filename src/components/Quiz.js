@@ -15,10 +15,6 @@ function Quiz({ questions, onQuizComplete, onCancel }) {
 
 
 
-  if (!questions || questions.length === 0) {
-    return <Typography variant="h6" color="error">No questions available. Please try again.</Typography>;
-  }
-
   useEffect(() => {
     setExplanation('');
     setSelectedOption('');
@@ -45,6 +41,10 @@ function Quiz({ questions, onQuizComplete, onCancel }) {
   useEffect(() => {
     isAnsweredRef.current = isAnswered;
   }, [isAnswered]);
+
+  if (!questions || questions.length === 0) {
+    return <Typography variant="h6" color="error">No questions available. Please try again.</Typography>;
+  }
 
   const handleSelect = async (option) => {
     if (!isAnswered) {
