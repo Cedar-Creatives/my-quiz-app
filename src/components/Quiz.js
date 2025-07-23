@@ -11,11 +11,13 @@ function Quiz({ questions, onQuizComplete, onCancel }) {
   const [isExplaining, setIsExplaining] = useState(false);
   const [timeLeft, setTimeLeft] = useState(30); // 30 seconds per question
 
+  const currentQuestion = questions[currentIndex];
+
+
+
   if (!questions || questions.length === 0) {
     return <Typography variant="h6" color="error">No questions available. Please try again.</Typography>;
   }
-
-  const currentQuestion = questions[currentIndex];
 
   useEffect(() => {
     setExplanation('');
