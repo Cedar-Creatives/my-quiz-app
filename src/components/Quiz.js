@@ -15,6 +15,26 @@ function Quiz({ questions, onQuizComplete, onCancel }) {
 
 
 
+
+
+  const handleNext = useCallback((timeRanOut = false) => {
+    // If time ran out and user didn't answer, record it as unanswered
+    if (timeRanOut && !isAnswered) {
+      setUserAnswers((prevAnswers) => [
+        ...prevAnswers,
+        { question: currentQuestion.question, selected: 'No Answer', correct: currentQuestion.correctAnswer },
+      ]);
+    }
+
+    // Always advance to the next question
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+      setIsAnswered(false); // Reset isAnswered for the next question
+    } else {
+      onQuizComplete(userAnswers);
+    }
+  }, [currentIndex, isAnswered, onQuizComplete, userAnswers]);
+
   useEffect(() => {
     setExplanation('');
     setSelectedOption('');
@@ -45,24 +65,6 @@ function Quiz({ questions, onQuizComplete, onCancel }) {
   if (!questions || questions.length === 0) {
     return <Typography variant="h6" color="error">No questions available. Please try again.</Typography>;
   }
-
-  const handleNext = useCallback((timeRanOut = false) => {
-    // If time ran out and user didn't answer, record it as unanswered
-    if (timeRanOut && !isAnswered) {
-      setUserAnswers((prevAnswers) => [
-        ...prevAnswers,
-        { question: currentQuestion.question, selected: 'No Answer', correct: currentQuestion.correctAnswer },
-      ]);
-    }
-
-    // Always advance to the next question
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-      setIsAnswered(false); // Reset isAnswered for the next question
-    } else {
-      onQuizComplete(userAnswers);
-    }
-  }, [currentIndex, isAnswered, onQuizComplete, userAnswers]);
 
   const handleSelect = async (option) => {
     if (!isAnswered) {
