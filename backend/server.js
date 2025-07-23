@@ -218,8 +218,8 @@ app.post('/api/explain-answer', async (req, res) => {
   }
 });
 
-const server = app.listen(5000, () => {
-  console.log(`Server running on port 5000`);
+const server = app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
   process.on('SIGTERM', () => {
     server.close(() => console.log('Server terminated'));
   });
