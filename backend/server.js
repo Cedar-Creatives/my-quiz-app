@@ -3,7 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 
-const { repairJson } = require('json-repair-js');
+const { repairJson } = require('jsonrepair');
 const OpenAI = require('openai');
 
 const openai = new OpenAI({
