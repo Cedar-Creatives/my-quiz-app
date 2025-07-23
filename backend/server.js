@@ -2,15 +2,29 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+
 const { repairJson } = require('json-repair-js');
-// const OpenAI = require('openai'); // Removed as we are using Gemini API
+const OpenAI = require('openai');
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENROUTER_API_KEY,
+  baseURL: "https://openrouter.ai/api/v1",
+  defaultHeaders: {
+    "HTTP-Referer": "https://github.com/yourusername/my-quiz-app",
+    "X-Title": "My Quiz App"
+  }
+});
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(bodyParser.json());
+
+// Add input sanitization
+const sanitizeInput = (input) => {
+  return input.replace(/[<>"]/g, '');
+};
 
 // Placeholder endpoint for AI-powered quiz question generation
 /**
@@ -61,8 +75,9 @@ app.use(bodyParser.json());
 app.post("/api/generate-quiz", async (req, res) => {
   const { topic, complexity, numQuestions = 10 } = req.body;
   const questionCount = Math.min(Math.max(1, parseInt(numQuestions) || 10), 100);
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  // Example type annotation improvement
+
+  const model = "openai/gpt-3.5-turbo"; // Changed to a valid OpenRouter model
 
   let attempts = 0;
   const maxAttempts = 3;
@@ -73,9 +88,13 @@ app.post("/api/generate-quiz", async (req, res) => {
     console.log(`Starting attempt ${attempts} for generating quiz on topic: ${topic}`);
     try {
       const prompt = `Generate exactly ${questionCount} quiz questions about ${topic} at ${complexity} level for junior developers. Each question must have: "question" string, "options" array of 4 strings, "correctAnswer" string matching one option. Output ONLY as a valid JSON array of objects, no extra text. Do not include any markdown or code blocks. Ensure the output is a pure JSON array starting with [ and ending with ]. Make sure all strings are double-quoted, all keys have colons, no trailing commas, and the structure is strictly an array of objects with the specified keys. Ensure colons inside strings are properly enclosed in double quotes without acting as key-value separators.`;
-      const result = await model.generateContent(prompt);
-      const rawContent = result.response.text();
-      console.log(`Attempt ${attempts} - Raw Gemini Response:`, rawContent);
+  
+    const result = await openai.chat.completions.create({
+        model: model,
+        messages: [{ role: "user", content: prompt }],
+      });
+      const rawContent = result.choices[0].message.content;
+      console.log(`Attempt ${attempts} - Raw OpenRouter Response:`, rawContent);
 
       // Robust parsing
       let jsonString = rawContent.trim();
@@ -97,10 +116,13 @@ app.post("/api/generate-quiz", async (req, res) => {
       try {
         questions = JSON.parse(jsonString);
       } catch (parseError) {
-        console.log(`Attempt ${attempts} - JSON.parse failed, attempting Gemini repair.`);
+        console.log(`Attempt ${attempts} - JSON.parse failed, attempting OpenRouter repair.`);
         const repairPrompt = `The following is a malformed JSON array of quiz questions. Fix it to be a valid JSON array of 10 objects, each with "question" (string), "options" (array of 4 strings), "correctAnswer" (string matching one option). Ensure proper escaping of inner quotes and no syntax errors. Malformed content: ${rawContent}`;
-        const repairResult = await model.generateContent(repairPrompt);
-        const repairedContent = repairResult.response.text().trim().replace(/```json|[`]{3}/g, '').trim();
+        const repairResult = await openai.chat.completions.create({
+          model: model,
+          messages: [{ role: "user", content: repairPrompt }],
+        });
+        const repairedContent = repairResult.choices[0].message.content.trim().replace(/```json|[`]{3}/g, '').trim();
         jsonString = repairJson(repairedContent); // Repair again if needed
         questions = JSON.parse(jsonString);
       }
@@ -154,32 +176,51 @@ app.post("/api/generate-quiz", async (req, res) => {
  *       500:
  *         description: Failed to generate explanation.
  */
-app.post("/api/explain-answer", async (req, res) => {
+/**
+ * Starts the Express server and listens for incoming requests.
+ * @param {number} PORT - The port number to listen on.
+ * @param {function} callback - Callback function to execute once the server starts.
+ */
+const findAvailablePort = async (basePort = 5000) => {
+  const net = require('net');
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.unref();
+    server.on('error', () => resolve(findAvailablePort(basePort + 1)));
+    server.listen({ port: basePort }, () => {
+      server.close(() => resolve(basePort));
+    });
+  });
+};
+
+
+app.post('/api/explain-answer', async (req, res) => {
   const { question, selectedOption, correctOption } = req.body;
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+  const model = "openai/gpt-3.5-turbo"; // Changed to a valid OpenRouter model
 
   try {
     let prompt;
     if (selectedOption === correctOption) {
       prompt = `For the question: "${question}", explain concisely why option "${correctOption}" is the correct answer. Focus only on the explanation of correctness.`;
     } else {
-      prompt = `For the question: "${question}", explain concisely why option "${correctOption}" is the correct answer and why option "${selectedOption}" is incorrect. Focus only on the explanation of correctness and incorrectness.`;
+      prompt = `For the question: "${correctOption}", explain concisely why option "${correctOption}" is the correct answer and why option "${selectedOption}" is incorrect. Focus only on the explanation of correctness and incorrectness.`;
     }
-    const result = await model.generateContent(prompt);
-    const explanation = result.response.text();
+    const result = await openai.chat.completions.create({
+      model: model,
+      messages: [{ role: "user", content: prompt }],
+    });
+    const explanation = result.choices[0].message.content;
     res.json({ explanation });
   } catch (error) {
-    console.error("Gemini error:", error);
+    console.error("OpenRouter error:", error);
     res.status(500).json({ error: "Failed to generate explanation" });
   }
 });
 
-/**
- * Starts the Express server and listens for incoming requests.
- * @param {number} PORT - The port number to listen on.
- * @param {function} callback - Callback function to execute once the server starts.
- */
-app.listen(PORT, () => {
-  console.log(`Backend server running on port ${PORT}`);
+const server = app.listen(5000, () => {
+  console.log(`Server running on port 5000`);
+  process.on('SIGTERM', () => {
+    server.close(() => console.log('Server terminated'));
+  });
 });
