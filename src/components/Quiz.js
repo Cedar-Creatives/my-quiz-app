@@ -1,12 +1,7 @@
-import { useState, useEffect } from 'react';
 import { Card, CardContent, Typography, Button, Radio, RadioGroup, FormControlLabel, FormControl, Box, Alert, CircularProgress } from '@mui/material';
-import { useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 function Quiz({ questions, onQuizComplete, onCancel }) {
-  if (!questions || questions.length === 0) {
-    return <Typography variant="h6" color="error">No questions available. Please try again.</Typography>;
-  }
-
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState('');
   const [isAnswered, setIsAnswered] = useState(false);
@@ -15,6 +10,10 @@ function Quiz({ questions, onQuizComplete, onCancel }) {
   const [explanation, setExplanation] = useState('');
   const [isExplaining, setIsExplaining] = useState(false);
   const [timeLeft, setTimeLeft] = useState(30); // 30 seconds per question
+
+  if (!questions || questions.length === 0) {
+    return <Typography variant="h6" color="error">No questions available. Please try again.</Typography>;
+  }
 
   const currentQuestion = questions[currentIndex];
 
