@@ -13,7 +13,7 @@ function Home({ onStartQuiz, initialTopic, initialComplexity, initialNumQuestion
   return (
     <Container maxWidth="sm" style={{ textAlign: 'center', marginTop: '50px' }}>
       <Typography variant="h4" gutterBottom>
-        Junior Developer Quiz App
+        Software Engineering Quiz App
       </Typography>
       <Typography variant="subtitle1" gutterBottom>
         Test your software engineering knowledge!
