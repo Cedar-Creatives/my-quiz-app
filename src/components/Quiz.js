@@ -1,5 +1,5 @@
-import { Card, CardContent, Typography, Button, Radio, RadioGroup, FormControlLabel, FormControl, Box, Alert, CircularProgress } from '@mui/material';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Typography, Card, CardContent, Button, Radio, RadioGroup, FormControlLabel, FormControl, CircularProgress, Alert, Box } from '@mui/material';
 
 function Quiz({ questions, onQuizComplete, onCancel }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -93,8 +93,9 @@ function Quiz({ questions, onQuizComplete, onCancel }) {
         timerRef.current = null;
       }
       setIsExplaining(true);
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
       try {
-        const response = await fetch('http://localhost:5000/api/explain-answer', {
+        const response = await fetch(`${backendUrl}/api/explain-answer`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

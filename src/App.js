@@ -25,7 +25,7 @@ function App() {
     setIsLoading(true);
     setError('');
     try {
-      const response = await fetch('http://localhost:5000/api/generate-quiz', {
+      const response = await fetch(`${backendUrl}/api/generate-quiz`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic, complexity, numQuestions }),
