@@ -15,6 +15,9 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+  console.log('Backend URL being used:', backendUrl);
+
   const handleStartQuiz = async (topic, complexity, numQuestions) => {
     setQuizTopic(topic);
     setQuizComplexity(complexity);
