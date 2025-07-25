@@ -218,6 +218,11 @@ app.post('/api/explain-answer', async (req, res) => {
   }
 });
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).send('Backend is healthy');
+});
+
 const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   process.on('SIGTERM', () => {
