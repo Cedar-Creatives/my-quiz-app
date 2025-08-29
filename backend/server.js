@@ -21,9 +21,12 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(bodyParser.json());
 
-// Add input sanitization
-const sanitizeInput = (input) => {
-  return input.replace(/[<>"]/g, '');
+// Utility: detect 402 Payment Required from OpenRouter/OpenAI errors
+const getHttpStatus = (err) => (err && (err.status || err.statusCode || (err.response && err.response.status))) || undefined;
+const isPaymentRequiredError = (err) => {
+  const status = getHttpStatus(err);
+  const msg = (err && (err.message || (err.error && err.error.message))) || '';
+  return status === 402 || /insufficient (credits|quota)|payment required/i.test(msg);
 };
 
 // Placeholder endpoint for AI-powered quiz question generation
@@ -72,12 +75,24 @@ const sanitizeInput = (input) => {
  *       500:
  *         description: Failed to generate quiz.
  */
+const getNextDifficulty = (current, score) => {
+  const order = ['beginner', 'intermediate', 'advanced'];
+  const idx = order.indexOf(current) === -1 ? 1 : order.indexOf(current);
+
+  if (score >= 80) return order[Math.min(idx + 1, order.length - 1)];
+  if (score <= 50) return order[Math.max(idx - 1, 0)];
+  return order[idx];
+};
+
 app.post("/api/generate-quiz", async (req, res) => {
-  const { topic, complexity, numQuestions = 10 } = req.body;
+  const { topic, complexity, numQuestions = 10, score: lastScore } = req.body;
+  const nextDifficulty = lastScore !== undefined ? getNextDifficulty(complexity, lastScore) : complexity;
   const questionCount = Math.min(Math.max(1, parseInt(numQuestions) || 10), 100);
   // Example type annotation improvement
 
-  const model = "openai/gpt-3.5-turbo"; // Changed to a valid OpenRouter model
+  const model = process.env.OPENROUTER_MODEL || "openai/gpt-3.5-turbo"; // configurable model
+  const tokenBudget = Math.min(1200, questionCount * 90); // keep responses concise and affordable
+  const temperature = 0.2;
 
   let attempts = 0;
   const maxAttempts = 3;
@@ -85,13 +100,15 @@ app.post("/api/generate-quiz", async (req, res) => {
   let errorMsg;
   while (attempts < maxAttempts && !success) {
     attempts++;
-    console.log(`Starting attempt ${attempts} for generating quiz on topic: ${topic}`);
+    console.log(`Starting attempt ${attempts} for generating quiz on topic: ${topic} at difficulty ${nextDifficulty}`);
     try {
-      const prompt = `Generate exactly ${questionCount} quiz questions about ${topic} at ${complexity} level for junior developers. Each question must have: "question" string, "options" array of 4 strings, "correctAnswer" string matching one option. Output ONLY as a valid JSON array of objects, no extra text. Do not include any markdown or code blocks. Ensure the output is a pure JSON array starting with [ and ending with ]. Make sure all strings are double-quoted, all keys have colons, no trailing commas, and the structure is strictly an array of objects with the specified keys. Ensure colons inside strings are properly enclosed in double quotes without acting as key-value separators.`;
+      const prompt = `Generate exactly ${questionCount} quiz questions about ${topic} at ${nextDifficulty} level for junior developers. Each question must have: "question" string, "options" array of 4 strings, "correctAnswer" string matching one option. Keep each question and option concise (<= 12 words). Output ONLY a valid JSON array of objects, no extra text, no markdown, no code fences. Ensure pure JSON starting with [ and ending with ]. Double-quote all strings and keys, no trailing commas.`;
   
-    const result = await openai.chat.completions.create({
-        model: model,
+      const result = await openai.chat.completions.create({
+        model,
         messages: [{ role: "user", content: prompt }],
+        max_tokens: tokenBudget,
+        temperature,
       });
       const rawContent = result.choices[0].message.content;
       console.log(`Attempt ${attempts} - Raw OpenRouter Response:`, rawContent);
@@ -117,10 +134,12 @@ app.post("/api/generate-quiz", async (req, res) => {
         questions = JSON.parse(jsonString);
       } catch (parseError) {
         console.log(`Attempt ${attempts} - JSON.parse failed, attempting OpenRouter repair.`);
-        const repairPrompt = `The following is a malformed JSON array of quiz questions. Fix it to be a valid JSON array of 10 objects, each with "question" (string), "options" (array of 4 strings), "correctAnswer" (string matching one option). Ensure proper escaping of inner quotes and no syntax errors. Malformed content: ${rawContent}`;
+        const repairPrompt = `The following is a malformed JSON array of quiz questions. Fix it to be a valid JSON array of ${questionCount} objects, each with "question" (string), "options" (array of 4 short strings), "correctAnswer" (string matching one option). Ensure proper escaping and valid JSON only. Malformed content: ${rawContent}`;
         const repairResult = await openai.chat.completions.create({
-          model: model,
+          model,
           messages: [{ role: "user", content: repairPrompt }],
+          max_tokens: tokenBudget,
+          temperature,
         });
         const repairedContent = repairResult.choices[0].message.content.trim().replace(/```json|[`]{3}/g, '').trim();
         jsonString = jsonrepair(repairedContent); // Repair again if needed
@@ -134,6 +153,13 @@ app.post("/api/generate-quiz", async (req, res) => {
       success = true;
     } catch (error) {
       console.error(`Attempt ${attempts} failed for topic ${topic}:`, error);
+      if (isPaymentRequiredError(error)) {
+        return res.status(402).json({
+          error: 'Insufficient credits',
+          details: 'OpenRouter reports insufficient credits to fulfill this request. Try fewer questions or upgrade your plan.',
+          code: 'INSUFFICIENT_CREDITS'
+        });
+      }
       errorMsg = error.message;
     }
   }
@@ -176,45 +202,39 @@ app.post("/api/generate-quiz", async (req, res) => {
  *       500:
  *         description: Failed to generate explanation.
  */
-/**
- * Starts the Express server and listens for incoming requests.
- * @param {number} PORT - The port number to listen on.
- * @param {function} callback - Callback function to execute once the server starts.
- */
-const findAvailablePort = async (basePort = 5000) => {
-  const net = require('net');
-  return new Promise((resolve) => {
-    const server = net.createServer();
-    server.unref();
-    server.on('error', () => resolve(findAvailablePort(basePort + 1)));
-    server.listen({ port: basePort }, () => {
-      server.close(() => resolve(basePort));
-    });
-  });
-};
-
 
 app.post('/api/explain-answer', async (req, res) => {
   const { question, selectedOption, correctOption } = req.body;
 
-  const model = "openai/gpt-3.5-turbo"; // Changed to a valid OpenRouter model
+  const model = process.env.OPENROUTER_MODEL || "openai/gpt-3.5-turbo"; // configurable model
+  const max_tokens = 300;
+  const temperature = 0.3;
 
   try {
     let prompt;
     if (selectedOption === correctOption) {
-      prompt = `For the question: "${question}", explain concisely why option "${correctOption}" is the correct answer. Focus only on the explanation of correctness.`;
+      prompt = `For the question: "${question}", explain concisely (<= 80 words) why option "${correctOption}" is the correct answer.`;
     } else {
-      prompt = `For the question: "${question}", explain concisely why option "${correctOption}" is the correct answer and why option "${selectedOption}" is incorrect. Focus only on the explanation of correctness and incorrectness.`;
+      prompt = `For the question: "${question}", explain concisely (<= 80 words) why option "${correctOption}" is correct and why option "${selectedOption}" is incorrect.`;
     }
     const result = await openai.chat.completions.create({
-      model: model,
+      model,
       messages: [{ role: "user", content: prompt }],
+      max_tokens,
+      temperature,
     });
     const explanation = result.choices[0].message.content;
     res.json({ explanation });
   } catch (error) {
     console.error("OpenRouter error:", error);
-    res.status(500).json({ error: "Failed to generate explanation" });
+    if (isPaymentRequiredError(error)) {
+      return res.status(402).json({
+        error: 'Insufficient credits',
+        details: 'OpenRouter reports insufficient credits to fulfill this request. Try again later or upgrade your plan.',
+        code: 'INSUFFICIENT_CREDITS'
+      });
+    }
+    res.status(500).json({ error: "Failed to generate explanation", details: error?.message || String(error) });
   }
 });
 

@@ -56,7 +56,23 @@ function AppContent() {
       const saved = localStorage.getItem("progress_v1");
       if (saved) {
         const parsed = JSON.parse(saved);
-        setProgress(normalizeProgress(parsed));
+        const normalized = normalizeProgress(parsed);
+
+        // Clean up any existing duplicates
+        if (normalized.history && Array.isArray(normalized.history)) {
+          const uniqueHistoryMap = new Map();
+          normalized.history.forEach((item) => {
+            const key = `${item.topic}-${item.ts}-${item.accuracy}`;
+            if (!uniqueHistoryMap.has(key)) {
+              uniqueHistoryMap.set(key, item);
+            }
+          });
+          normalized.history = Array.from(uniqueHistoryMap.values())
+            .sort((a, b) => b.ts - a.ts)
+            .slice(0, 1000);
+        }
+
+        setProgress(normalized);
       }
     } catch (e) {
       console.warn("Failed to parse saved progress");
@@ -85,15 +101,27 @@ function AppContent() {
 
             // Merge with existing history, prioritizing Firestore data
             const next = JSON.parse(JSON.stringify(progress));
-            next.history = [...firestoreHistory, ...next.history]
-              // Remove duplicates (based on timestamp)
-              .filter(
-                (item, index, self) =>
-                  index === self.findIndex((t) => t.ts === item.ts)
-              )
-              // Sort by timestamp (newest first)
+
+            // Create a map to track unique entries by topic + timestamp + accuracy
+            const uniqueHistoryMap = new Map();
+
+            // Add existing history first
+            if (next.history && Array.isArray(next.history)) {
+              next.history.forEach((item) => {
+                const key = `${item.topic}-${item.ts}-${item.accuracy}`;
+                uniqueHistoryMap.set(key, item);
+              });
+            }
+
+            // Add Firestore history, overwriting duplicates
+            firestoreHistory.forEach((item) => {
+              const key = `${item.topic}-${item.ts}-${item.accuracy}`;
+              uniqueHistoryMap.set(key, item);
+            });
+
+            // Convert back to array and sort by timestamp (newest first)
+            next.history = Array.from(uniqueHistoryMap.values())
               .sort((a, b) => b.ts - a.ts)
-              // Limit to 1000 entries
               .slice(0, 1000);
 
             setProgress(next);
@@ -106,7 +134,7 @@ function AppContent() {
     };
 
     loadFirestoreData();
-  }, [currentUser?.uid, progress]);
+  }, [currentUser?.uid]); // Remove 'progress' from dependencies to prevent infinite loop
 
   const normalizeProgress = (p) => {
     const base = {
@@ -141,7 +169,23 @@ function AppContent() {
       };
     });
     merged.byTopic = newByTopic;
-    merged.history = Array.isArray(p?.history) ? p.history : [];
+
+    // Clean up duplicate history entries
+    if (Array.isArray(p?.history)) {
+      const uniqueHistoryMap = new Map();
+      p.history.forEach((item) => {
+        const key = `${item.topic}-${item.ts}-${item.accuracy}`;
+        if (!uniqueHistoryMap.has(key)) {
+          uniqueHistoryMap.set(key, item);
+        }
+      });
+      merged.history = Array.from(uniqueHistoryMap.values())
+        .sort((a, b) => b.ts - a.ts)
+        .slice(0, 1000);
+    } else {
+      merged.history = [];
+    }
+
     return merged;
   };
 
@@ -247,42 +291,6 @@ function AppContent() {
     }
   };
 
-  // Demo mode: local, static questions without backend
-  const handleStartDemo = () => {
-    const demoQuestions = [
-      {
-        question: "What does === check in JavaScript?",
-        options: [
-          "Value only",
-          "Type only",
-          "Value and type",
-          "Reference only",
-        ],
-        correctAnswer: "Value and type",
-      },
-      {
-        question: "Which array method creates a new array without mutating?",
-        options: ["push", "splice", "map", "sort"],
-        correctAnswer: "map",
-      },
-      {
-        question: "What is the output of typeof null?",
-        options: ["null", "undefined", "object", "number"],
-        correctAnswer: "object",
-      },
-      {
-        question: "Which keyword declares a block-scoped variable?",
-        options: ["var", "let", "function", "const var"],
-        correctAnswer: "let",
-      },
-    ];
-    setQuizTopic("JavaScript Demo");
-    setQuizComplexity("beginner");
-    setQuizNumQuestions(demoQuestions.length);
-    setQuestions(demoQuestions);
-    setScreen("quiz");
-  };
-
   const updateProgress = async (topic, difficulty, answers) => {
     const total = answers.length;
     const correct = answers.filter((a) => a.isCorrect).length;
@@ -329,14 +337,38 @@ function AppContent() {
 
     // history (append)
     if (!Array.isArray(next.history)) next.history = [];
-    next.history.push({
-      ts: now,
-      topic,
-      difficulty,
-      total,
-      correct,
-      accuracy: percentage,
-    });
+
+    // Check if this quiz result already exists to prevent duplicates
+    const existingQuizIndex = next.history.findIndex(
+      (item) =>
+        item.topic === topic &&
+        item.difficulty === difficulty &&
+        Math.abs(item.ts - now) < 60000 && // Within 1 minute (same quiz session)
+        item.accuracy === percentage
+    );
+
+    if (existingQuizIndex === -1) {
+      // Add new quiz result
+      next.history.push({
+        ts: now,
+        topic,
+        difficulty,
+        total,
+        correct,
+        accuracy: percentage,
+      });
+    } else {
+      // Update existing entry if it's the same quiz
+      next.history[existingQuizIndex] = {
+        ts: now,
+        topic,
+        difficulty,
+        total,
+        correct,
+        accuracy: percentage,
+      };
+    }
+
     // Optionally cap history length
     if (next.history.length > 1000) {
       next.history = next.history.slice(next.history.length - 1000);
@@ -459,7 +491,6 @@ function AppContent() {
             {screen === "home" && (
               <Home
                 onStartQuiz={handleStartQuiz}
-                onStartDemo={handleStartDemo}
                 initialTopic={quizTopic}
                 initialComplexity={quizComplexity}
                 initialNumQuestions={quizNumQuestions}

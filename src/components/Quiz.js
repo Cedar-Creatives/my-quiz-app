@@ -1,46 +1,85 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Typography, Card, CardContent, Button, Radio, RadioGroup, FormControlLabel, FormControl, CircularProgress, Alert, Box } from '@mui/material';
+import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  Typography,
+  Card,
+  CardContent,
+  Button,
+  Radio,
+  RadioGroup,
+  FormControlLabel,
+  FormControl,
+  CircularProgress,
+  Alert,
+  Box,
+  LinearProgress,
+} from "@mui/material";
+import { Fade, Grow } from "@mui/material";
 
 function Quiz({ questions, onQuizComplete, onCancel }) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedOption, setSelectedOption] = useState('');
+  const [selectedOption, setSelectedOption] = useState("");
   const [isAnswered, setIsAnswered] = useState(false);
   const isAnsweredRef = useRef(isAnswered);
   const [userAnswers, setUserAnswers] = useState([]);
   const userAnswersRef = useRef(userAnswers);
-  const [explanation, setExplanation] = useState('');
+  const [explanation, setExplanation] = useState("");
   const [isExplaining, setIsExplaining] = useState(false);
   const [timeLeft, setTimeLeft] = useState(30); // 30 seconds per question
   const timerRef = useRef(null); // Ref to hold the timer interval
 
   const currentQuestion = questions[currentIndex];
 
-  console.log('Quiz component rendered. currentIndex:', currentIndex, 'isAnswered:', isAnswered);
+  console.log(
+    "Quiz component rendered. currentIndex:",
+    currentIndex,
+    "isAnswered:",
+    isAnswered
+  );
 
   useEffect(() => {
     userAnswersRef.current = userAnswers;
   }, [userAnswers]);
 
-  const handleNext = useCallback((timeRanOut = false) => {
-    console.log('handleNext called. timeRanOut:', timeRanOut, 'currentIndex:', currentIndex, 'isAnswered:', isAnsweredRef.current, 'userAnswers length:', userAnswersRef.current.length);
-    let finalAnswers = userAnswersRef.current;
-    if (timeRanOut && !isAnsweredRef.current) {
-      const unanswered = { question: questions[currentIndex].question, selected: 'No Answer', correct: questions[currentIndex].correctAnswer };
-      setUserAnswers((prev) => [...prev, unanswered]);
-      finalAnswers = [...finalAnswers, unanswered];
-    }
+  const handleNext = useCallback(
+    (timeRanOut = false) => {
+      console.log(
+        "handleNext called. timeRanOut:",
+        timeRanOut,
+        "currentIndex:",
+        currentIndex,
+        "isAnswered:",
+        isAnsweredRef.current,
+        "userAnswers length:",
+        userAnswersRef.current.length
+      );
+      let finalAnswers = userAnswersRef.current;
+      if (timeRanOut && !isAnsweredRef.current) {
+        const unanswered = {
+          question: questions[currentIndex].question,
+          selected: "No Answer",
+          correct: questions[currentIndex].correctAnswer,
+          isCorrect: false,
+        };
+        setUserAnswers((prev) => [...prev, unanswered]);
+        finalAnswers = [...finalAnswers, unanswered];
+      }
 
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    } else {
-      onQuizComplete(finalAnswers);
-    }
-  }, [currentIndex, onQuizComplete, questions, setCurrentIndex, setUserAnswers]);
+      if (currentIndex < questions.length - 1) {
+        setCurrentIndex(currentIndex + 1);
+      } else {
+        onQuizComplete(finalAnswers);
+      }
+    },
+    [currentIndex, onQuizComplete, questions, setCurrentIndex, setUserAnswers]
+  );
 
   useEffect(() => {
-    console.log('useEffect for question setup triggered. currentIndex:', currentIndex);
-    setExplanation('');
-    setSelectedOption('');
+    console.log(
+      "useEffect for question setup triggered. currentIndex:",
+      currentIndex
+    );
+    setExplanation("");
+    setSelectedOption("");
     setIsAnswered(false); // Reset isAnswered for new question
     isAnsweredRef.current = false;
     setTimeLeft(30); // Reset timer for new question
@@ -52,7 +91,12 @@ function Quiz({ questions, onQuizComplete, onCancel }) {
 
     timerRef.current = setInterval(() => {
       setTimeLeft((prevTime) => {
-        console.log('Timer tick. timeLeft:', prevTime - 1, 'isAnswered:', isAnsweredRef.current);
+        console.log(
+          "Timer tick. timeLeft:",
+          prevTime - 1,
+          "isAnswered:",
+          isAnsweredRef.current
+        );
         if (prevTime <= 1) {
           clearInterval(timerRef.current);
           timerRef.current = null;
@@ -67,7 +111,7 @@ function Quiz({ questions, onQuizComplete, onCancel }) {
     }, 1000);
 
     return () => {
-      console.log('Cleanup: Clearing timer for currentIndex:', currentIndex);
+      console.log("Cleanup: Clearing timer for currentIndex:", currentIndex);
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
@@ -76,28 +120,51 @@ function Quiz({ questions, onQuizComplete, onCancel }) {
   }, [currentIndex, handleNext]);
 
   if (!questions || questions.length === 0) {
-    return <Typography variant="h6" color="error">No questions available. Please try again.</Typography>;
+    return (
+      <Typography variant="h6" color="error">
+        No questions available. Please try again.
+      </Typography>
+    );
   }
 
   const handleSelect = async (option) => {
-    console.log('handleSelect called. option:', option, 'currentIndex:', currentIndex, 'isAnswered before:', isAnswered);
+    console.log(
+      "handleSelect called. option:",
+      option,
+      "currentIndex:",
+      currentIndex,
+      "isAnswered before:",
+      isAnswered
+    );
     if (!isAnswered) {
       setSelectedOption(option);
-      setUserAnswers([...userAnswers, { question: currentQuestion.question, selected: option, correct: currentQuestion.correctAnswer }]);
+      setUserAnswers([
+        ...userAnswers,
+        {
+          question: currentQuestion.question,
+          selected: option,
+          correct: currentQuestion.correctAnswer,
+          isCorrect: option === currentQuestion.correctAnswer,
+        },
+      ]);
       isAnsweredRef.current = true; // Update ref immediately
       setIsAnswered(true); // Set isAnswered to true immediately
-      console.log('isAnswered set to true. currentIndex:', currentIndex);
+      console.log("isAnswered set to true. currentIndex:", currentIndex);
       if (timerRef.current) {
-        console.log('Clearing timer in handleSelect. currentIndex:', currentIndex);
+        console.log(
+          "Clearing timer in handleSelect. currentIndex:",
+          currentIndex
+        );
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
       setIsExplaining(true);
-      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+      const backendUrl =
+        process.env.REACT_APP_BACKEND_URL || "http://localhost:5000";
       try {
         const response = await fetch(`${backendUrl}/api/explain-answer`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             question: currentQuestion.question,
             selectedOption: option,
@@ -106,10 +173,15 @@ function Quiz({ questions, onQuizComplete, onCancel }) {
         });
         const data = await response.json();
         setExplanation(data.explanation);
-        console.log('Explanation fetched. currentIndex:', currentIndex, 'isAnswered:', isAnswered);
+        console.log(
+          "Explanation fetched. currentIndex:",
+          currentIndex,
+          "isAnswered:",
+          isAnswered
+        );
       } catch (error) {
-        console.error('Error fetching explanation:', error);
-        setExplanation('Failed to load explanation.');
+        console.error("Error fetching explanation:", error);
+        setExplanation("Failed to load explanation.");
       } finally {
         setIsExplaining(false);
       }
@@ -117,56 +189,95 @@ function Quiz({ questions, onQuizComplete, onCancel }) {
   };
 
   const getOptionColor = (option) => {
-    if (!isAnswered) return 'primary';
-    if (option === currentQuestion.correctAnswer) return 'success';
-    if (option === selectedOption) return 'error';
-    return 'primary';
+    if (!isAnswered) return "primary";
+    if (option === currentQuestion.correctAnswer) return "success";
+    if (option === selectedOption) return "error";
+    return "primary";
   };
 
   return (
-    <Card sx={{ maxWidth: 600, margin: 'auto', mt: 5 }}>
+    <Card sx={{ maxWidth: 600, margin: "auto", mt: 5 }}>
       <CardContent>
         <Typography variant="h5" gutterBottom>
           Question {currentIndex + 1} of {questions.length}
         </Typography>
-        <Typography variant="h6" color="textSecondary" sx={{ mb: 2 }}>
+        <Typography variant="h6" color="textSecondary" sx={{ mb: 1 }}>
           Time Left: {timeLeft}s
         </Typography>
-        <Typography variant="body1" gutterBottom>
-          {currentQuestion.question}
+        <LinearProgress
+          variant="determinate"
+          value={(timeLeft / 30) * 100}
+          sx={{ height: 8, borderRadius: 4, mb: 2 }}
+        />
+        <Typography variant="body2" color="textSecondary">
+          Progress
         </Typography>
-        <FormControl component="fieldset">
-          <RadioGroup value={selectedOption} onChange={(e) => handleSelect(e.target.value)}>
-            {currentQuestion.options.map((option, idx) => (
-              <FormControlLabel
-                key={idx}
-                value={option}
-                control={<Radio color={getOptionColor(option)} />}
-                label={option}
-                disabled={isAnswered || timeLeft === 0}
-              />
-            ))}
-          </RadioGroup>
-        </FormControl>
-        {isAnswered && (
-          <Box mt={2}>
-            {selectedOption === currentQuestion.correctAnswer ? (
-              <Alert severity="success">Correct!</Alert>
-            ) : (
-              <Alert severity="error">Incorrect. The correct answer was: {currentQuestion.correctAnswer}</Alert>
-            )}
-            {isExplaining ? (
-              <CircularProgress size={24} sx={{ mt: 2 }} />
-            ) : (
-              explanation && <Typography variant="body2" sx={{ mt: 2 }}>{explanation}</Typography>
-            )}
-            <Button variant="contained" color="primary" onClick={handleNext} sx={{ mt: 2 }}>
-              {currentIndex < questions.length - 1 ? 'Next' : 'Finish'}
-            </Button>
-            <Button variant="outlined" color="secondary" onClick={onCancel} sx={{ mt: 2, ml: 2 }}>
-              Cancel
-            </Button>
+        <LinearProgress
+          variant="determinate"
+          value={((currentIndex + 1) / questions.length) * 100}
+          sx={{ height: 6, borderRadius: 4, mb: 2 }}
+        />
+        <Fade in timeout={300}>
+          <Box>
+            <Typography variant="body1" gutterBottom>
+              {currentQuestion.question}
+            </Typography>
+            <FormControl component="fieldset">
+              <RadioGroup
+                value={selectedOption}
+                onChange={(e) => handleSelect(e.target.value)}
+              >
+                {currentQuestion.options.map((option, idx) => (
+                  <FormControlLabel
+                    key={idx}
+                    value={option}
+                    control={<Radio color={getOptionColor(option)} />}
+                    label={option}
+                    disabled={isAnswered || timeLeft === 0}
+                  />
+                ))}
+              </RadioGroup>
+            </FormControl>
           </Box>
+        </Fade>
+        {isAnswered && (
+          <Grow in timeout={250}>
+            <Box mt={2}>
+              {selectedOption === currentQuestion.correctAnswer ? (
+                <Alert severity="success">Correct!</Alert>
+              ) : (
+                <Alert severity="error">
+                  Incorrect. The correct answer was:{" "}
+                  {currentQuestion.correctAnswer}
+                </Alert>
+              )}
+              {isExplaining ? (
+                <CircularProgress size={24} sx={{ mt: 2 }} />
+              ) : (
+                explanation && (
+                  <Typography variant="body2" sx={{ mt: 2 }}>
+                    {explanation}
+                  </Typography>
+                )
+              )}
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleNext}
+                sx={{ mt: 2 }}
+              >
+                {currentIndex < questions.length - 1 ? "Next" : "Finish"}
+              </Button>
+              <Button
+                variant="outlined"
+                color="secondary"
+                onClick={onCancel}
+                sx={{ mt: 2, ml: 2 }}
+              >
+                Cancel
+              </Button>
+            </Box>
+          </Grow>
         )}
       </CardContent>
     </Card>
